@@ -1,0 +1,54 @@
+TITLE_ID = VITA2DTST
+TARGET   = psybnc
+PROJECT_TITLE := psybnc
+
+INCLUDE = -I./src/ -I.
+
+OBJS	= src/psybnc.o src/match.o src/p_client.o src/p_crypt.o src/p_dcc.o src/p_hash.o src/p_idea.o src/p_inifunc.o src/p_link.o src/p_log.o src/p_memory.o src/p_network.o src/p_parse.o src/p_peer.o src/p_server.o src/p_socket.o src/p_string.o src/p_sysmsg.o src/p_userfile.o src/p_uchannel.o src/p_script.o src/p_topology.o src/p_intnet.o src/p_blowfish.o src/p_translate.o src/p_coredns.o src/snprintf.o 
+
+LIBS	= -lm -lz -lvita2d \
+          -lvita2d -lSceDisplay_stub -lSceGxm_stub \
+          -lSceSysmodule_stub -lSceCtrl_stub -lScePgf_stub -lScePvf_stub \
+          -lSceCommonDialog_stub -lSceTouch_stub -lfreetype -lpng -ljpeg -lz -lm -lc \
+          -lSceAppMgr_stub -lSceAppUtil_stub \
+          -lSceAudio_stub -lSceAudiodec_stub
+
+PREFIX  = arm-vita-eabi
+CC      = $(PREFIX)-gcc
+SRC     = src/
+CFLAGS  = -O -Wl,-q -Wall -fno-lto -I./src/ -I.
+DEFINE	= -DHAVE_CONFIG -DNOSYSTIME 
+ASFLAGS = $(CFLAGS)
+
+all: $(TARGET).vpk
+
+%.vpk: eboot.bin
+	vita-mksfoex -d PARENTAL_LEVEL=1 -s APP_VER=01.00 -s TITLE_ID=$(TITLE_ID) "$(PROJECT_TITLE)" param.sfo
+	vita-pack-vpk -s param.sfo -b eboot.bin \
+    psybnc.vpk
+
+eboot.bin: $(TARGET).velf
+	vita-make-fself -s $< $@
+
+%.velf: %.elf
+	vita-elf-create $< $@
+
+$(TARGET).elf: $(OBJS)
+	$(CC) $(CFLAGS) $^ $(LIBS) -o $@
+
+%.o: %.png
+	$(PREFIX)-ld -r -b binary -o $@ $^
+
+clean:
+	@rm -rf $(TARGET).vpk $(TARGET).velf $(TARGET).elf $(OBJS) \
+		eboot.bin param.sfo
+
+vpksend: $(TARGET).vpk
+	curl -T $(TARGET).vpk ftp://$(PSVITAIP):1337/ux0:/
+	@echo "Sent."
+
+send: eboot.bin
+	curl -T eboot.bin ftp://$(PSVITAIP):1337/ux0:/app/$(TITLE_ID)/
+	@echo "Sent."
+
+#include ./targets.mak
